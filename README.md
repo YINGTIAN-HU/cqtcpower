@@ -424,20 +424,6 @@ freedom of the t quantile; the standard error is the model-based one.
 
 ---
 
-## Reproducing the paper
-
-Scripts that regenerate the tables and figures of the accompanying paper are in
-the [`paper/`](paper/) folder of this repository, with their own README.
-
----
-
-## Citation
-
-If you use `cqtcpower`, please cite:
-
-> [Authors]. Sample size and power estimation in concentration-QTc modeling with
-> parallel single ascending dose design. *Manuscript under review.*
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
