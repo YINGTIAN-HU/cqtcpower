@@ -96,18 +96,3 @@ downloaded as CSV.
 | `RS + Z` | treatment + concentration | intercept + slope, correlated | simulation only |
 
 All models also include fixed effects for baseline QTc and each time point.
-
-## Differences from the original research code
-
-* Random-slope sample size uses C* = C / (1 + g_i), as derived in Appendix A.2
-  (the original `calculate_analytical_sample_size2()` used `sqrt(1 + g_i)`).
-* The term g_i²/(1 + g_i)² is averaged over all simulated concentration
-  datasets (the original kept only the last one).
-* Analytical and simulation results use one set of model names.
-* All models are fitted to the same simulated dataset in each replicate, which
-  is equivalent to the original per-model seeding but six times cheaper.
-* Models are fitted on `C_rel = Concentration / C_supra` (an exact
-  reparameterisation), with fallback optimisers. In the paper's design this
-  removes the convergence warnings that ~8% of `RS0` and ~18% of `RS` fits
-  produced on the mg/mL scale. Convergence and boundary (singular) fits are
-  reported per model by `cqtc_simulate()`.
