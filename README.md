@@ -28,8 +28,6 @@ model. It gives you:
 * [Step by step](#step-by-step)
 * [Shiny app](#shiny-app)
 * [Function reference](#function-reference)
-* [Methods and assumptions](#methods-and-assumptions)
-* [Reproducing the paper](#reproducing-the-paper)
 * [Citation](#citation) · [License](#license)
 
 ---
@@ -310,15 +308,6 @@ Each simulated study fits every requested model. As a guide, 1000 studies × 6
 models with all three degrees-of-freedom methods took about 13 minutes on one
 core (about 6.5 minutes on two) for the design above.
 
-### 7. Lower-level functions
-
-```r
-d   <- simulate_sad_data(des, par, seed = 1)          # one simulated study (long format)
-fit <- fit_cqtc_model(d, "RS0 + Z", C_supra = 0.008)   # estimate, SE and bounds at C_supra
-```
-
-`fit_cqtc_model()` can be applied to real data with the same column names
-(`delta_QTC`, `Time`, `Baseline`, `Concentration`, `Treatment`, `Subject`).
 
 ---
 
