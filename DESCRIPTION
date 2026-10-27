@@ -1,0 +1,38 @@
+Package: cqtcpower
+Type: Package
+Title: Power and Sample Size for Concentration-QTc Analyses in Parallel Single
+    Ascending Dose Studies
+Version: 0.1.0
+Authors@R: person("Tony", "Hu", email = "tonyhu1994@gmail.com",
+    role = c("aut", "cre"))
+Description: Analytical and simulation-based power and sample size calculations
+    for concentration-QTc (C-QTc) analyses of parallel-group single ascending
+    dose (SAD) studies analysed with linear mixed-effects models. Closed-form
+    approximations of the covariance of the treatment and concentration effects
+    are provided for random-intercept and uncorrelated random-slope models, with
+    and without a treatment indicator. A simulation engine based on 'lme4' and
+    'lmerTest' covers all six models, including the correlated random-slope
+    models, and reports empirical power, coverage probability and relative bias
+    with Wald, Satterthwaite or Kenward-Roger degrees of freedom.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.0.0)
+Imports:
+    graphics,
+    lme4,
+    lmerTest,
+    MASS,
+    stats
+Suggests:
+    bslib,
+    future.apply,
+    knitr,
+    pbkrtest,
+    rmarkdown,
+    shiny,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1

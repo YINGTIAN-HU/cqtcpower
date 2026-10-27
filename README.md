@@ -1,154 +1,113 @@
-# C-QTc Power and Sample Size for Parallel SAD Studies
+# cqtcpower
 
-R code for evaluating **power** and **sample size** of concentration–QTc (C-QTc)
-analyses in parallel-group single ascending dose (SAD) studies, using linear
-mixed-effects models (LMMs).
+Power and sample size for concentration-QTc (C-QTc) analyses of parallel-group
+single ascending dose (SAD) studies analysed with linear mixed-effects models.
 
-The project does two things:
+A study concludes **no clinically relevant QT effect** when the upper bound of
+the one-sided 95% confidence interval of the predicted ΔΔQTc at the
+supratherapeutic concentration `C_supra` is below 10 ms. `cqtcpower` answers:
 
-1. **Analytical power / sample size.** Closed-form expressions for the variance
-   of the fixed effects (theta_Z, theta_C) in random-intercept and random-slope
-   LMMs, turned into power and sample-size formulas.
-2. **Simulation validation.** Simulate PK concentrations and ΔQTc data, fit the
-   LMMs with `lme4`/`lmerTest`, and compare empirical power, coverage
-   probability (CP), and relative bias with the analytical results.
+* **Power:** how likely is that conclusion for a given number of subjects per
+  cohort? Use `cqtc_power()` and `cqtc_power_curve()`.
+* **Sample size:** how many subjects per cohort reach a target power? Use
+  `cqtc_sample_size()`.
 
-The quantity being tested is the predicted ΔΔQTc at the supratherapeutic
-concentration `C_supra`:
+## Installation
 
-    U = theta_Z + theta_C * C_supra       (models with a treatment effect Z)
-    U = theta_C * C_supra                 (models without Z)
-
-A study "succeeds" (no QT effect) when the upper bound of the one-sided 95% CI
-is below `U0 = 10` ms.
-
----
-
-## Folder layout
-
-```
-├── README                         this file
-│
-├── utils.R                        low-level matrix helpers (gi, ai, bi, A^-1, ...)
-├── generate_concentration.R       PK concentration generators
-├── generate_delta_QTC.R           ΔQTc generator for one cohort
-├── generate_parallel_SAD_data.R   full parallel SAD study + LMM fit
-├── calculate_variance.R           analytical (inverse) covariance of (theta_Z, theta_C)
-├── calculate_power.R              analytical + empirical power, CP, bias
-├── calculate_analytical_sample_size.R   analytical sample size
-│
-├── simulation_power_evaluation_cluster_script.R   one simulation scenario (run on cluster)
-├── aggregate_simulation_results.R  combines all scenarios into Results/power.txt
-├── table_results_summary.R         prints Tables 4, 5, 6
-├── plot_simulate_QTc.R             example simulated data figure (Figure/QTC.pdf)
-├── plot_sample_size_estimation_comparison.R   sample-size figures (Figures 2–4)
-├── plot_figure_appendix.R          appendix power figures (Figures B1, B2)
-│
-├── Results/                       simulation output, one folder per scenario
-├── Figure/                        generated PDF figures
+```r
+# from the folder that contains cqtcpower/
+install.packages("cqtcpower", repos = NULL, type = "source")
 ```
 
----
+Requires `lme4`, `lmerTest` and `MASS`. Kenward-Roger degrees of freedom need
+`pbkrtest`; parallel simulation needs `future.apply`.
 
-## How the code fits together
+## Quick start
+
+```r
+library(cqtcpower)
+
+des <- cqtc_design(
+  conc = conc_pk_1cmt(dose = c(1, 3, 10, 30, 100, 200, 400, 800)),
+  n_active = 6, n_placebo = 2,
+  times = c(1, 2, 4, 8, 12, 16, 24)
+)
+par <- cqtc_params(U1 = 5, C_supra = 0.008, theta_Z = 0.5,
+                   sigma_e = 5, sigma0 = 8, slope_cv = 0.75)
+
+cqtc_power(des, par)                  # power with 6 + 2 subjects per cohort
+cqtc_sample_size(des, par, power = 0.8)
+plot(cqtc_power_curve(des, par))
+
+# simulation check, including the correlated random-slope models
+sim <- cqtc_simulate(des, par, nsim = 1000, ddf = "Kenward-Roger")
+```
+
+Output of `cqtc_sample_size(des, par, power = 0.8)`:
 
 ```
-                 utils.R
-                    │
-generate_concentration.R ──► generate_delta_QTC.R ──► generate_parallel_SAD_data.R
-                                                         │ (simulate + fit LMM)
-                    calculate_variance.R ◄── utils.R     │
-                         │                               │
-          ┌──────────────┴──────────────┐                │
-calculate_analytical_sample_size.R   calculate_power.R ◄─┘
-          │                               │
-plot_sample_size_estimation_        simulation_power_evaluation_cluster_script.R
-  comparison.R  (Figs 2–4)                │  writes Results/<scenario>/{power,CP,bias}.txt
-                                          ▼
-                       aggregate_simulation_results.R ──► Results/power.txt
-                                          │
-                  table_results_summary.R (Tables 4–6), plot_figure_appendix.R (Figs B1–B2)
+C-QTc sample size (analytical), target power 80%
+Design: 8 cohorts, active:placebo = 6:2, 7 ECG times
+Truth:  U1 = 5 ms at C_supra = 0.008 (theta_Z = 0.5); sigma_e = 5, sigma0 = 8, sigma1 = 421.9
+Rule:   one-sided 95% upper bound < U0 = 10 ms
+
+   model n/cohort (A:P) total N power SE(U)
+      RI        4 (3:1)      32 0.819 1.956
+  RI + Z      16 (12:4)     128 0.847 1.873
+     RS0        8 (6:2)      64 0.888 1.748
+ RS0 + Z      20 (15:5)     160 0.870 1.803
 ```
 
----
+## Interactive app
+
+```r
+install.packages(c("shiny", "bslib"))   # once
+cqtcpower::cqtc_app()
+```
+
+Set the design and assumptions in the sidebar. The tabs show power at the
+current cohort size and a power curve, the sample size for the target power
+(also across true ΔΔQTc values), a simulation check of any of the six models,
+and the typical concentration profiles against `C_supra`. Tables can be
+downloaded as CSV.
+
+## Main functions
+
+| Function | Purpose |
+|---|---|
+| `conc_pk_1cmt()`, `conc_profile()` | Concentration model (one-compartment PK, or a fixed profile scaled per cohort) |
+| `cqtc_design()` | Cohorts, active/placebo allocation, ECG times |
+| `cqtc_params()` | True ΔΔQTc `U1`, treatment effect, variance components, threshold and α |
+| `cqtc_power()` | Analytical power for `RI`, `RI + Z`, `RS0`, `RS0 + Z` |
+| `cqtc_power_curve()` | Power across cohort sizes, with `plot()` |
+| `cqtc_sample_size()` | Smallest cohort size reaching the target power (analytical or simulation) |
+| `cqtc_simulate()` | Empirical power, coverage and bias for all six models (Wald / Satterthwaite / Kenward-Roger) |
+| `simulate_sad_data()`, `fit_cqtc_model()` | Simulate one study; fit one model and get the bound at `C_supra` |
 
 ## Models
 
-Six LMMs are compared throughout (names used as `model =` arguments and as row
-labels in the results files). Every model also has fixed effects for baseline
-QTc (`Baseline`) and time (`t1 … tT`), and no global intercept.
+| Model | Fixed effects | Random effects (by subject) | Analytical |
+|---|---|---|---|
+| `RI` | concentration | intercept | yes |
+| `RI + Z` | treatment + concentration | intercept | yes |
+| `RS0` | concentration | intercept + slope, uncorrelated | yes |
+| `RS0 + Z` | treatment + concentration | intercept + slope, uncorrelated | yes |
+| `RS` | concentration | intercept + slope, correlated | simulation only |
+| `RS + Z` | treatment + concentration | intercept + slope, correlated | simulation only |
 
-| Label     | Fixed effects            | Random effects (by subject)              |
-|-----------|--------------------------|------------------------------------------|
-| `RI`      | Concentration            | intercept                                |
-| `RI + Z`  | Treatment + Concentration| intercept                                |
-| `RS0`     | Concentration            | intercept + slope, uncorrelated (`||`)   |
-| `RS0 + Z` | Treatment + Concentration| intercept + slope, uncorrelated (`||`)   |
-| `RS`      | Concentration            | intercept + slope, correlated            |
-| `RS + Z`  | Treatment + Concentration| intercept + slope, correlated            |
+All models also include fixed effects for baseline QTc and each time point.
 
-Analytical power is available for the first four only; `RS` / `RS + Z` are
-`NA` in the analytical column.
+## Differences from the original research code
 
----
-
-## Getting started
-
-### Requirements
-R (≥ 4.0) with the following packages:
-
-```r
-install.packages(c("lme4", "lmerTest", "nlme", "MASS",
-                   "dplyr", "tidyr", "ggplot2", "cowplot", "scales",
-                   "gridExtra", "latex2exp"))
-```
-
-`pbkrtest` is also needed for Kenward–Roger df in `lmerTest::contest`.
-
-### Typical workflows
-Open `Bala.Rproj` first so the working directory is the project root.
-
-**1. Analytical sample size (fast, no simulation)**
-```r
-source("utils.R"); source("calculate_variance.R"); source("calculate_analytical_sample_size.R")
-calculate_analytical_sample_size2(N_G = 8, R = 3, delta = 5, sigma_e = 6, sigma0 = 3, sigma1 = 600)
-```
-
-**2. Power for one scenario (analytical + simulation)**
-```r
-library(lme4); library(lmerTest); library(MASS)
-for (f in c("utils.R", "generate_concentration.R", "generate_delta_QTC.R",
-            "generate_parallel_SAD_data.R", "calculate_variance.R", "calculate_power.R"))
-  source(f)
-res <- calculate_power(U1 = 5, CV = 0.75, theta_Z_true = 0.5, N_sim = 100)
-res$power; res$CP; res$bias
-```
-Each empirical fit is an `lmer` call, and the code runs `6 × N_sim` fits. Start
-with a small `N_sim`.
-
-**3. Reproduce the manuscript results**
-1. Run `simulation_power_evaluation_cluster_script.R` for every scenario on the cluster.
-2. Copy the scenario folders into `Results/`.
-3. Run `aggregate_simulation_results.R` → `Results/power.txt`.
-4. Run `table_results_summary.R` (Tables 4–6) and `plot_figure_appendix.R` (Figures B1–B2).
-5. Run `plot_sample_size_estimation_comparison.R` (Figures 2–4) and `plot_simulate_QTc.R`.
-
----
-
-## Default simulation parameters
-
-| Parameter | Default | Meaning |
-|---|---|---|
-| `dose_level` | 1, 3, 10, 30, 100, 200, 400, 800 mg | 8 SAD cohorts |
-| `N_A`, `N_P` | 6, 2 | active / placebo subjects per cohort |
-| `t` | 1, 2, 4, 8, 12, 16, 24 h | ECG time points |
-| `Ka, CL, V` | 0.8, 12000, 40000 | one-compartment PK parameters |
-| `theta0, theta_W` | -5.76, -0.58 | intercept, baseline effect |
-| `theta_T` | 1.93, 2.29, 3.53, -3.15, -0.28, 5.17, 3.98 | time effects |
-| `eta0` | 8 | SD of random intercept |
-| `epsilon` | 5 | residual SD |
-| `mean_baseline`, `sd_baseline` | 408, 16 | baseline QTc |
-| `C_supra` | 0.008 (also 0.0113) | supratherapeutic concentration |
-| `U0` | 10 ms | regulatory threshold |
-
----
+* Random-slope sample size uses C* = C / (1 + g_i), as derived in Appendix A.2
+  (the original `calculate_analytical_sample_size2()` used `sqrt(1 + g_i)`).
+* The term g_i²/(1 + g_i)² is averaged over all simulated concentration
+  datasets (the original kept only the last one).
+* Analytical and simulation results use one set of model names.
+* All models are fitted to the same simulated dataset in each replicate, which
+  is equivalent to the original per-model seeding but six times cheaper.
+* Models are fitted on `C_rel = Concentration / C_supra` (an exact
+  reparameterisation), with fallback optimisers. In the paper's design this
+  removes the convergence warnings that ~8% of `RS0` and ~18% of `RS` fits
+  produced on the mg/mL scale. Convergence and boundary (singular) fits are
+  reported per model by `cqtc_simulate()`.

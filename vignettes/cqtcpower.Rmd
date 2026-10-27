@@ -1,0 +1,112 @@
+---
+title: "Power and sample size for C-QTc analyses with cqtcpower"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Power and sample size for C-QTc analyses with cqtcpower}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4)
+library(cqtcpower)
+```
+
+In a parallel single ascending dose (SAD) study, the concentration-QTc (C-QTc)
+analysis concludes that a drug has **no clinically relevant QT effect** when the
+upper bound of the one-sided 95% confidence interval of the predicted
+$\Delta\Delta QTc$ at the supratherapeutic concentration $C_{supra}$ is below
+$U_0 = 10$ ms. `cqtcpower` tells you how likely that conclusion is (power) and
+how many subjects per cohort you need (sample size).
+
+## 1. Describe the study
+
+Concentrations come either from a one-compartment PK model or from a fixed
+profile.
+
+```{r design}
+des <- cqtc_design(
+  conc = conc_pk_1cmt(dose = c(1, 3, 10, 30, 100, 200, 400, 800),
+                      Ka = 0.8, CL = 12000, V = 40000, iiv_sd = 0.1),
+  n_active = 6, n_placebo = 2,
+  times = c(1, 2, 4, 8, 12, 16, 24)
+)
+des
+conc_typical(des)$true_cmax   # helps choose C_supra
+```
+
+## 2. State the truth you plan for
+
+`U1` is the true $\Delta\Delta QTc$ at `C_supra`. `theta_Z` is a
+concentration-independent treatment effect. `slope_cv` sets between-subject
+variability of the C-QTc slope (or give `sigma1` directly).
+
+```{r params}
+par <- cqtc_params(U1 = 5, C_supra = 0.008, theta_Z = 0.5,
+                   sigma_e = 5, sigma0 = 8, slope_cv = 0.75)
+par
+```
+
+## 3. Power
+
+```{r power}
+cqtc_power(des, par)
+```
+
+`RI` and `RS0` estimate $\theta_C C_{supra}$ only; `RI + Z` and `RS0 + Z` also
+estimate the treatment effect, which costs power but protects against a
+concentration-independent drug effect.
+
+Power across cohort sizes:
+
+```{r curve}
+pc <- cqtc_power_curve(des, par, n_per_cohort = seq(4, 40, by = 4))
+plot(pc)
+```
+
+## 4. Sample size
+
+```{r ss}
+cqtc_sample_size(des, par, power = 0.8)
+```
+
+The cohort size moves in blocks that keep the 6:2 active:placebo ratio (4, 8,
+12, ...).
+
+## 5. Check by simulation
+
+`cqtc_simulate()` simulates studies, fits the mixed models with `lmerTest`, and
+reports empirical power, coverage and bias next to the analytical power. It is
+also the only way to evaluate the correlated random-slope models `RS` and
+`RS + Z`. Each replicate fits every requested model, so start small:
+
+```{r sim}
+sim <- cqtc_simulate(des, par, nsim = 30, models = c("RI + Z", "RS0 + Z", "RS + Z"),
+                     ddf = "Wald")
+sim
+```
+
+For a real check use `nsim = 1000` or more, Kenward-Roger degrees of freedom
+(`ddf = "Kenward-Roger"`, needs the `pbkrtest` package), and run in parallel:
+
+```{r parallel, eval = FALSE}
+future::plan("multisession", workers = 8)
+sim <- cqtc_simulate(des, par, nsim = 1000, ddf = "Kenward-Roger", parallel = TRUE)
+```
+
+Simulation-based sample size (for example for `RS + Z`) starts at the
+analytical answer and steps block by block:
+
+```{r sim-ss, eval = FALSE}
+cqtc_sample_size(des, par, models = "RS + Z", method = "simulation",
+                 nsim = 500, ddf = "Kenward-Roger", parallel = TRUE)
+```
+
+## Notes on the analytical approximation
+
+The closed-form covariance of $(\hat\theta_Z, \hat\theta_C)$ assumes known
+variance components and that treatment and concentrations are uncorrelated with
+baseline QTc. For random-slope models it additionally approximates the
+fixed-effect block of the information matrix by its random-intercept form. In
+the settings of the accompanying paper the resulting standard error of
+$\hat U$ is within about 3% of the exact GLS value.
