@@ -337,22 +337,6 @@ Results update as you change the inputs. The tabs:
 | **Concentrations** | Mean concentration-time profile of every cohort against C<sub>supra</sub>, with the true C<sub>max</sub>. |
 | **About** | Decision rule, power formula and model definitions. |
 
-**Power** — power at the planned design and the power curve:
-
-![Power tab](man/figures/app-power.png)
-
-**Sample size** — required cohort size for the target power, and across true ΔΔQTc:
-
-![Sample size tab](man/figures/app-sample-size.png)
-
-**Simulation** — empirical check by fitting the mixed models:
-
-![Simulation tab](man/figures/app-simulation.png)
-
-**Concentrations** — typical profiles and C<sub>supra</sub>:
-
-![Concentrations tab](man/figures/app-concentrations.png)
-
 Tips: power and sample size are analytical and fast; the bar chart over ΔΔQTc
 takes a few seconds. Simulations fit real mixed models: 100 studies with three
 models take about a minute; Kenward-Roger is slower.
