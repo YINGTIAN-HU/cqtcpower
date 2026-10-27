@@ -28,7 +28,8 @@ model. It gives you:
 * [Step by step](#step-by-step)
 * [Shiny app](#shiny-app)
 * [Function reference](#function-reference)
-* [Citation](#citation) · [License](#license)
+* [Citation](#citation)
+* [License](#license)
 
 ---
 
